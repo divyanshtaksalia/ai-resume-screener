@@ -3,6 +3,18 @@ import io
 import json
 import PyPDF2
 import google.generativeai as genai
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+
+# ... (CORS aur baki code same rahega)
+
+# 1. Static files (HTML/CSS) ko serve karne ke liye configuration
+# Maan lijiye aapki index.html 'templates' folder mein hai
+app.mount("/static", StaticFiles(directory="templates"), name="static")
+
+@app.get("/")
+async def serve_home():
+    return FileResponse("templates/index.html")
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 
