@@ -219,10 +219,12 @@
         formData.append("resume_file", resumeFile);
 
         try {
-          const response = await fetch("http://127.0.0.1:8000/screen-resume", {
-            method: "POST",
-            body: formData,
-          });
+          // index.html mein ye badlav karein:
+        const response = await fetch('https://ai-resume-screener-wehp.onrender.com/screen-resume', {
+        method: 'POST',
+        body: formData
+        });
+          
 
           if (!response.ok) {
             throw new Error("Screening request failed");
