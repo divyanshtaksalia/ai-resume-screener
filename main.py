@@ -3,40 +3,14 @@ import io
 import json
 import PyPDF2
 import google.generativeai as genai
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-
-# ... (CORS aur baki code same rahega)
-
-# 1. Static files (HTML/CSS) ko serve karne ke liye configuration
-# Maan lijiye aapki index.html 'templates' folder mein hai
-app.mount("/static", StaticFiles(directory="templates"), name="static")
-
-@app.get("/")
-async def serve_home():
-    return FileResponse("templates/index.html")
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
-
-# ... (baaki imports aur CORS same rahega)
-
-# Check karein ki 'templates' folder exist karta hai
-if not os.path.exists("templates"):
-    os.makedirs("templates")
-
-# Frontend serve karne ke liye root route
-@app.get("/")
-async def read_root():
-    return FileResponse("templates/index.html")
-
-# Agar aapki CSS/JS files hain toh unke liye static mount
-# app.mount("/static", StaticFiles(directory="static"), name="static")
+# CORS Setup
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -44,38 +18,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# API Key
-genai.configure(api_key="AIzaSyC2qJRfaBKfD_WPSxLcHmA1uUg5w2GJnHM")
+# Static files aur templates setup
+if not os.path.exists("templates"):
+    os.makedirs("templates")
+
+# Agar aapki CSS/JS files alag folder mein hain toh ise uncomment karein
+# app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# API Key - Render Environment Variable se uthayega
+GEMINI_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyC2qJRfaBKfD_WPSxLcHmA1uUg5w2GJnHM")
+genai.configure(api_key=GEMINI_KEY)
 
 def extract_text_from_pdf(file_bytes):
     pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
     text = ""
     for page in pdf_reader.pages:
         extracted = page.extract_text()
-        if extracted: text += extracted
+        if extracted:
+            text += extracted
     return text
 
+# Frontend Route: Browser mein URL kholte hi index.html dikhega
+@app.get("/")
+async def read_root():
+    return FileResponse("templates/index.html")
+
+# Backend Route: Resume screening ke liye
 @app.post("/screen-resume")
 async def screen_resume(job_description: str = Form(...), resume_file: UploadFile = File(...)):
     try:
         resume_bytes = await resume_file.read()
         resume_text = extract_text_from_pdf(resume_bytes)
 
-        # FIX: Sabse pehle available models ki list check karte hain
+        # Smart model selection
         available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
         
-        # Priority: 1.5-flash > 1.0-pro > Jo bhi pehla mile
         model_to_use = "gemini-1.5-flash" 
         if "models/gemini-1.5-flash" in available_models:
             model_to_use = "gemini-1.5-flash"
         elif "models/gemini-pro" in available_models:
             model_to_use = "gemini-pro"
         else:
-            # Agar dono nahi milte, toh list ka pehla model uthalo
             model_to_use = available_models[0].split('/')[-1]
 
-        print(f"Using model: {model_to_use}") # Debugging ke liye terminal mein dikhega
-        
         ai_model = genai.GenerativeModel(model_to_use)
 
         prompt = f"""
@@ -87,8 +72,6 @@ async def screen_resume(job_description: str = Form(...), resume_file: UploadFil
         """
 
         response = ai_model.generate_content(prompt)
-        
-        # Clean response
         res_text = response.text.strip().replace('```json', '').replace('```', '')
         return json.loads(res_text)
 
