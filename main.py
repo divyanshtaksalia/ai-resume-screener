@@ -20,10 +20,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-@app.get("/")
-def read_root():
-    return {"status": "Backend is running!", "endpoint": "/screen-resume"}
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
+# ... (baaki imports aur CORS same rahega)
+
+# Check karein ki 'templates' folder exist karta hai
+if not os.path.exists("templates"):
+    os.makedirs("templates")
+
+# Frontend serve karne ke liye root route
+@app.get("/")
+async def read_root():
+    return FileResponse("templates/index.html")
+
+# Agar aapki CSS/JS files hain toh unke liye static mount
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
